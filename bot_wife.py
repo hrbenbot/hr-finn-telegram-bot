@@ -1,10 +1,11 @@
 from flask import Flask
 import threading
 import os
+import json
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 from datetime import datetime
 
 TOKEN = "8542038363:AAFiuxqMEv3GLr76Pl3ItsjhapsasB4DFss"
@@ -14,9 +15,11 @@ scope = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-creds = ServiceAccountCredentials.from_json_keyfile_name(
-    "/etc/secrets/service_account.json",
-    scope
+service_account_info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
+
+creds = Credentials.from_service_account_info(
+    service_account_info,
+    scopes=scope
 )
 
 client = gspread.authorize(creds)
@@ -97,7 +100,7 @@ web_app = Flask(__name__)
 
 @web_app.route("/")
 def home():
-    return "HR Finn Bot is running"
+    return "HR Wife Bot is running"
 
 
 def run_web():
