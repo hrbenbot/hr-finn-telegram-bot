@@ -14,7 +14,7 @@ scope = [
 ]
 
 creds = ServiceAccountCredentials.from_json_keyfile_name(
-    "service_account.json",
+    "/etc/secrets/service_account.json",
     scope
 )
 
