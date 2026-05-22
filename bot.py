@@ -1,5 +1,6 @@
 from flask import Flask
 import threading
+import os
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 import gspread
@@ -24,13 +25,19 @@ spreadsheet = client.open("CV_DAU_DATABASE")
 sheet_cv_dau = spreadsheet.worksheet("CV_DAU")
 sheet_nhan_viec = spreadsheet.worksheet("NHAN_VIEC")
 
-async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
 
+def format_date(raw_date):
+    try:
+        return datetime.strptime(raw_date.strip(), "%d-%m-%Y").strftime("%m月 %d， %Y")
+    except:
+        return raw_date
+
+
+async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text or ""
     data = {}
 
-    lines = text.split("\n")
-    for line in lines:
+    for line in text.split("\n"):
         if "：" in line:
             key, value = line.split("：", 1)
             data[key.strip()] = value.strip()
@@ -43,12 +50,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if "ngày nhận việc" in data:
-        ngay_raw = data.get("ngày nhận việc", "")
-
-        try:
-            ngay_nhan_viec = datetime.strptime(ngay_raw, "%d-%m-%Y").strftime("%m月 %d， %Y")
-        except:
-            ngay_nhan_viec = ngay_raw
+        ngay_nhan_viec = format_date(data.get("ngày nhận việc", ""))
 
         row = [
             "",
@@ -86,25 +88,29 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         data.get("平台", "")
     ]
 
-    sheet_cv_dau.append_row(row)
+    next_row = len(sheet_cv_dau.col_values(2)) + 1
+    sheet_cv_dau.update(f"A{next_row}:J{next_row}", [row])
     await update.message.reply_text("Đã lưu CV đậu.")
 
-app = ApplicationBuilder().token(TOKEN).build()
 
-app.add_handler(MessageHandler(filters.TEXT, handle))
-
-app.run_polling()
 web_app = Flask(__name__)
 
 @web_app.route("/")
 def home():
     return "HR Finn Bot is running"
 
+
 def run_web():
-    web_app.run(host="0.0.0.0", port=10000)
+    port = int(os.environ.get("PORT", 10000))
+    web_app.run(host="0.0.0.0", port=port)
 
-threading.Thread(target=run_web).start()
 
-app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(MessageHandler(filters.TEXT, handle))
-app.run_polling()
+def run_bot():
+    telegram_app = ApplicationBuilder().token(TOKEN).build()
+    telegram_app.add_handler(MessageHandler(filters.TEXT, handle))
+    telegram_app.run_polling()
+
+
+if __name__ == "__main__":
+    threading.Thread(target=run_web, daemon=True).start()
+    run_bot()
